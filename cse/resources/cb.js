@@ -1,4 +1,5 @@
 const pool = require('../../db/connection');
+const config = require('config');
 const logger = require('../../logger').child({ module: 'cb' });
 
 async function retrieve_a_cb(resp_prim) {
@@ -6,7 +7,10 @@ async function retrieve_a_cb(resp_prim) {
     
     try {
         // get <cb> resource from PostgreSQL
-        const result = await pool.query('SELECT * FROM cb WHERE ty = 5');
+        const result = await pool.query(
+            'SELECT * FROM cb WHERE ty = 5 AND sid = $1',
+            [config.cse.csebase_rn]
+        );
         
         if (result.rows.length > 0) {
             const db_res = result.rows[0];

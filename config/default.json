@@ -1,18 +1,18 @@
 {
   "cse": {
-    "cse_type": 1,
+    "cse_type": 2,
     "sp_id": "//mydomain.io",
-    "cse_id": "/incse",
-    "csebase_rn": "incse",
+    "cse_id": "/mn-cse-tenant-c",
+    "csebase_rn": "mn-cse-tenant-c",
     "poa": [
-      "http://192.168.0.236:7599"
+      "http://localhost:7603"
     ],
     "registrar": {  
       "cse_type": 1,
       "cse_id": "/incse",
       "csebase_rn": "incse",
       "ip": "localhost",
-      "port": 7579,
+      "port": 7599,
       "versions": [
         "4",
         "3",
@@ -55,20 +55,20 @@
   "cb": {
     "default_acp": {
       "rn": "cb_default_acp",
-      "create": true,
+      "create": false,
       "retrieve": true,
       "update": false,
-      "discovery": true
+      "discovery": false
     }
   },
   "request": {
     "max_body_size": "1mb"
   },
   "http": {
-    "port": 7599
+    "port": 7603
   },
   "https": {
-    "port": 7580
+    "port": 7582
   },
   "mqtt": {
     "enabled": true,
@@ -86,7 +86,7 @@
   "db": {
     "user": "sm",
     "host": "localhost",
-    "name": "mobiusdb_in",
+    "name": "onem2m_shared",
     "pw": "keti1234",
     "port": 5432,
     "connect_timeout_ms": 10000,

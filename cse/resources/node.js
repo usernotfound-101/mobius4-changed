@@ -1,6 +1,7 @@
 const { nod_create_schema, nod_update_schema } = require('../validation/res_schema');
 const { generate_ri, get_cur_time, get_default_et, convert_loc_to_geoJson, get_loc_attribute } = require('../utils');
 const enums = require('../../config/enums');
+const config = require('config');
 const NOD = require('../../models/nod-model');
 const Lookup = require('../../models/lookup-model');
 const logger = require('../../logger').child({ module: 'nod' });
@@ -41,6 +42,7 @@ async function create_a_nod(req_prim, resp_prim) {
   const now = get_cur_time();
   const et = get_default_et();
   const sid = req_prim.sid + '/' + prim_res.rn;
+  const default_acpi = [`${config.cse.csebase_rn}/${config.cb.default_acp.rn}`];
 
   try {
     await NOD.create({
@@ -54,7 +56,7 @@ async function create_a_nod(req_prim, resp_prim) {
       ct: now,
       lt: now,
       cr: prim_res.cr === null ? req_prim.fr : null,
-      acpi: prim_res.acpi || null,
+      acpi: prim_res.acpi || default_acpi,
       lbl: prim_res.lbl || null,
       ni: prim_res.ni || null,
       hcl: prim_res.hcl || null,

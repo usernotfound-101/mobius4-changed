@@ -5,8 +5,8 @@ set -euo pipefail
 # Defaults target Tenant_Common, but can be overridden with env vars.
 
 HOST="${HOST:-localhost}"
-PORT="${PORT:-7601}"
-CSEBASE_RN="${CSEBASE_RN:-mn-cse-tenant-a}"
+PORT="${PORT:-7603}"
+CSEBASE_RN="${CSEBASE_RN:-mn-cse-tenant-c}"
 ORIGIN="${ORIGIN:-SM}"
 RVI="${RVI:-4}"
 

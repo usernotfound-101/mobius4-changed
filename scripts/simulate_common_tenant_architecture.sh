@@ -16,8 +16,8 @@ IN_CSEBASE_RN="${IN_CSEBASE_RN:-incse}"
 IN_ADMIN_ORIGIN="${IN_ADMIN_ORIGIN:-SM}"
 
 MN_HOST="${MN_HOST:-localhost}"
-MN_PORT="${MN_PORT:-7601}"
-MN_CSEBASE_RN="${MN_CSEBASE_RN:-mn-cse-tenant-a}"
+MN_PORT="${MN_PORT:-7603}"
+MN_CSEBASE_RN="${MN_CSEBASE_RN:-mn-cse-tenant-c}"
 MN_ADMIN_ORIGIN="${MN_ADMIN_ORIGIN:-SM}"
 
 # Mobius4 virtual resource name for fan-out is fopt.
