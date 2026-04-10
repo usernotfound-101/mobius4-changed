@@ -411,38 +411,36 @@ function httpToPrim(http_req) {
   }
 
   // 'operation' mapping
-  if (http_req.headers["content-type"] != null) {
-    if (http_req.headers["content-type"].split(";")[1] == null) {
-      if (http_req.method === "GET") {
-        prim.op = 2;
-      } else if (http_req.method === "PUT") {
-        prim.op = 3;
-      } else if (http_req.method === "DELETE") {
-        prim.op = 4;
-      } else {
-        prim.op = 5;
+  const contentType = http_req.headers["content-type"];
+  if (http_req.method === "GET") {
+    prim.op = 2;
+  } else if (http_req.method === "PUT") {
+    prim.op = 3;
+  } else if (http_req.method === "DELETE") {
+    prim.op = 4;
+  } else if (http_req.method === "POST") {
+    // POST with `;ty=` is CREATE, otherwise treat it as NOTIFY unless explicitly overridden.
+    const explicitOp = Number.parseInt(http_req.headers["x-m2m-op"], 10);
+    if (Number.isInteger(explicitOp)) {
+      prim.op = explicitOp;
+    } else if (contentType && /(?:^|\s|;)ty=\d+/.test(contentType)) {
+      prim.op = 1;
+      try {
+        const tyParam = contentType
+          .split(";")
+          .map((part) => part.trim())
+          .find((part) => part.startsWith("ty="));
+        if (tyParam) {
+          prim.ty = Number.parseInt(tyParam.split("=")[1], 10);
+        }
+      } catch (err) {
+        logger.warn({ err, contentType }, "failed to parse resource type from Content-Type");
       }
     } else {
-      prim.op = 1;
-    }
-
-    if (http_req.headers["content-type"].includes(";") == true) {
-      try {
-        prim.ty = parseInt(
-          http_req.headers["content-type"].split(";")[1].split("=")[1]
-        );
-      } catch (err) {
-        logger.warn({ err, contentType: http_req.headers["content-type"] }, 'failed to parse resource type from Content-Type');
-      }
+      prim.op = 5;
     }
   } else {
-    if (http_req.method == "GET") {
-      prim.op = 2;
-    } else if (http_req.method == "DELETE") {
-      prim.op = 4;
-    } else {
-      logger.warn({ method: http_req.method, url: http_req.url }, 'op param could not be resolved');
-    }
+    logger.warn({ method: http_req.method, url: http_req.url }, "op param could not be resolved");
   }
 
   query = http_req.query;
