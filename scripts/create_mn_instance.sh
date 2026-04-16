@@ -18,7 +18,7 @@ Required:
 
 Options:
   --profile <common|restricted|isolated>
-                                Template profile to copy (default: common)
+                                Profile overlay to apply (default: common)
   --repo-url <ssh-or-https-url> Repository URL to clone/pull
                                 (default: git@github.com:usernotfound-101/mobius4-changed.git)
   --workdir <path>              Working directory for clone/pull
@@ -34,10 +34,11 @@ Options:
 
 Behavior:
   1) Pulls latest repo (or clones it if missing)
-  2) Copies chosen profile template into a new MN_<name> folder
+  2) Copies root Mobius boilerplate into a new MN_<name> folder
   3) Automatically assigns free HTTP/HTTPS ports
   4) Tracks assigned ports in .mn_instances.json to avoid future collisions
-  5) Updates CSE IDs, POA, registrar target, DB values, and PM2 app name
+  5) Applies profile-specific settings (common/restricted/isolated)
+  6) Updates CSE IDs, POA, registrar target, DB values, and PM2 app name
 USAGE
 }
 
@@ -180,6 +181,9 @@ MQTT_PORT="$MQTT_PORT_DEFAULT"
 BASE_HTTP_PORT=7601
 BASE_HTTPS_PORT=7581
 BASE_DB_PORT=5433
+BASE_HTTP_PORT_SET=false
+BASE_HTTPS_PORT_SET=false
+BASE_DB_PORT_SET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -217,14 +221,17 @@ while [[ $# -gt 0 ]]; do
       ;;
     --base-http-port)
       BASE_HTTP_PORT="$2"
+      BASE_HTTP_PORT_SET=true
       shift 2
       ;;
     --base-https-port)
       BASE_HTTPS_PORT="$2"
+      BASE_HTTPS_PORT_SET=true
       shift 2
       ;;
     --base-db-port)
       BASE_DB_PORT="$2"
+      BASE_DB_PORT_SET=true
       shift 2
       ;;
     --help|-h)
@@ -245,9 +252,6 @@ if [[ -z "$MN_NAME" ]]; then
   exit 1
 fi
 
-METADATA_FILE="${REPO_DIR}/.mn_instances.json"
-init_metadata_file "$METADATA_FILE"
-
 case "$PROFILE" in
   common|restricted|isolated) ;;
   *)
@@ -259,7 +263,7 @@ esac
 require_cmd git
 require_cmd node
 require_cmd ss
-require_cmd cp
+require_cmd tar
 require_cmd sed
 
 mkdir -p "$WORKDIR"
@@ -274,24 +278,60 @@ else
   git clone "$REPO_URL" "$REPO_DIR"
 fi
 
+METADATA_FILE="${REPO_DIR}/.mn_instances.json"
+init_metadata_file "$METADATA_FILE"
+
 case "$PROFILE" in
   common)
-    TEMPLATE_DIR="${REPO_DIR}/Tenant_Common"
+    TEMPLATE_DIR="${REPO_DIR}"
     DB_USER="common"
     DB_NAME="mobiusdb_common"
     DB_PORT=5432
+    ACP_CREATE=true
+    ACP_RETRIEVE=true
+    ACP_UPDATE=false
+    ACP_DISCOVERY=true
+    if [[ "$BASE_HTTP_PORT_SET" == false ]]; then
+      BASE_HTTP_PORT=7601
+    fi
+    if [[ "$BASE_HTTPS_PORT_SET" == false ]]; then
+      BASE_HTTPS_PORT=7581
+    fi
     ;;
   restricted)
-    TEMPLATE_DIR="${REPO_DIR}/Tenant_Restricted"
+    TEMPLATE_DIR="${REPO_DIR}"
     DB_USER="sm"
     DB_NAME="onem2m_shared"
     DB_PORT=5432
+    ACP_CREATE=false
+    ACP_RETRIEVE=true
+    ACP_UPDATE=false
+    ACP_DISCOVERY=false
+    if [[ "$BASE_HTTP_PORT_SET" == false ]]; then
+      BASE_HTTP_PORT=7603
+    fi
+    if [[ "$BASE_HTTPS_PORT_SET" == false ]]; then
+      BASE_HTTPS_PORT=7583
+    fi
     ;;
   isolated)
-    TEMPLATE_DIR="${REPO_DIR}/Tenant_Isolated"
+    TEMPLATE_DIR="${REPO_DIR}"
     DB_USER="${MN_NAME//-/_}"
     DB_NAME="onem2m_${MN_NAME//-/_}"
+    if [[ "$BASE_DB_PORT_SET" == false ]]; then
+      BASE_DB_PORT=5433
+    fi
     DB_PORT="$(next_free_port "$BASE_DB_PORT" "$METADATA_FILE")"
+    ACP_CREATE=true
+    ACP_RETRIEVE=true
+    ACP_UPDATE=false
+    ACP_DISCOVERY=true
+    if [[ "$BASE_HTTP_PORT_SET" == false ]]; then
+      BASE_HTTP_PORT=7602
+    fi
+    if [[ "$BASE_HTTPS_PORT_SET" == false ]]; then
+      BASE_HTTPS_PORT=7582
+    fi
     ;;
 esac
 
@@ -320,7 +360,22 @@ POA_URL="http://localhost:${HTTP_PORT}"
 PM2_NAME="mobius4-mn-${MN_NAME}"
 
 echo "[INFO] Creating instance from template ${TEMPLATE_DIR}"
-cp -a "$TEMPLATE_DIR" "$INSTANCE_DIR"
+mkdir -p "$INSTANCE_DIR"
+(
+  cd "$REPO_DIR"
+  tar \
+    --exclude='.git' \
+    --exclude='node_modules' \
+    --exclude='MN_*' \
+    --exclude='.mn_instances.json' \
+    --exclude='Tenant_Common' \
+    --exclude='Tenant_Restricted' \
+    --exclude='Tenant_Isolated' \
+    -cf - .
+) | (
+  cd "$INSTANCE_DIR"
+  tar -xf -
+)
 
 CONFIG_FILE="${INSTANCE_DIR}/config/default.json"
 ECOSYSTEM_FILE="${INSTANCE_DIR}/ecosystem.config.js"
@@ -331,10 +386,10 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
-node - <<'NODE' "$CONFIG_FILE" "$CSE_ID" "$CSEBASE_RN" "$POA_URL" "$REGISTRAR_HOST" "$REGISTRAR_PORT" "$HTTP_PORT" "$HTTPS_PORT" "$MQTT_HOST" "$MQTT_PORT" "$DB_USER" "$DB_NAME" "$DB_PORT"
+node - <<'NODE' "$CONFIG_FILE" "$CSE_ID" "$CSEBASE_RN" "$POA_URL" "$REGISTRAR_HOST" "$REGISTRAR_PORT" "$HTTP_PORT" "$HTTPS_PORT" "$MQTT_HOST" "$MQTT_PORT" "$DB_USER" "$DB_NAME" "$DB_PORT" "$ACP_CREATE" "$ACP_RETRIEVE" "$ACP_UPDATE" "$ACP_DISCOVERY"
 const fs = require('fs');
 
-const [configFile, cseId, csebaseRn, poaUrl, registrarHost, registrarPort, httpPort, httpsPort, mqttHost, mqttPort, dbUser, dbName, dbPort] = process.argv.slice(2);
+const [configFile, cseId, csebaseRn, poaUrl, registrarHost, registrarPort, httpPort, httpsPort, mqttHost, mqttPort, dbUser, dbName, dbPort, acpCreate, acpRetrieve, acpUpdate, acpDiscovery] = process.argv.slice(2);
 
 const cfg = JSON.parse(fs.readFileSync(configFile, 'utf8'));
 cfg.cse = cfg.cse || {};
@@ -360,6 +415,13 @@ cfg.db.user = dbUser;
 cfg.db.name = dbName;
 cfg.db.port = Number(dbPort);
 
+cfg.cb = cfg.cb || {};
+cfg.cb.default_acp = cfg.cb.default_acp || {};
+cfg.cb.default_acp.create = acpCreate === 'true';
+cfg.cb.default_acp.retrieve = acpRetrieve === 'true';
+cfg.cb.default_acp.update = acpUpdate === 'true';
+cfg.cb.default_acp.discovery = acpDiscovery === 'true';
+
 fs.writeFileSync(configFile, JSON.stringify(cfg, null, 2) + '\n');
 NODE
 
@@ -367,22 +429,30 @@ if [[ -f "$ECOSYSTEM_FILE" ]]; then
   sed -i "s/name: 'mobius4'/name: '${PM2_NAME}'/" "$ECOSYSTEM_FILE"
 fi
 
-if [[ -f "$README_TENANT_FILE" ]]; then
-  {
-    echo
-    echo "## Auto Provisioning"
-    echo
-    echo "This instance was auto-provisioned by scripts/create_mn_instance.sh."
-    echo
-    echo "- Profile: ${PROFILE}"
-    echo "- CSE-ID: ${CSE_ID}"
-    echo "- CSEBase: ${CSEBASE_RN}"
-    echo "- HTTP: ${HTTP_PORT}"
-    echo "- HTTPS: ${HTTPS_PORT}"
-    echo "- Registrar: http://${REGISTRAR_HOST}:${REGISTRAR_PORT}/incse"
-    echo "- DB: ${DB_NAME} (${DB_USER}@localhost:${DB_PORT})"
-  } >> "$README_TENANT_FILE"
+if [[ ! -f "$README_TENANT_FILE" ]]; then
+  cat > "$README_TENANT_FILE" <<EOF
+# MN_${MN_NAME}
+
+Profile: ${PROFILE}
+
+This MN instance was generated from the standalone Mobius boilerplate.
+EOF
 fi
+
+{
+  echo
+  echo "## Auto Provisioning"
+  echo
+  echo "This instance was auto-provisioned by scripts/create_mn_instance.sh."
+  echo
+  echo "- Profile: ${PROFILE}"
+  echo "- CSE-ID: ${CSE_ID}"
+  echo "- CSEBase: ${CSEBASE_RN}"
+  echo "- HTTP: ${HTTP_PORT}"
+  echo "- HTTPS: ${HTTPS_PORT}"
+  echo "- Registrar: http://${REGISTRAR_HOST}:${REGISTRAR_PORT}/incse"
+  echo "- DB: ${DB_NAME} (${DB_USER}@localhost:${DB_PORT})"
+} >> "$README_TENANT_FILE"
 
 record_metadata_entry \
   "$METADATA_FILE" \

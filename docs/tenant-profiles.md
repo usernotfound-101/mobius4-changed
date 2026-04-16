@@ -1,92 +1,65 @@
-# Tenant Profiles: Common, Restricted, and Isolated
+# Tenant Profiles (Single Boilerplate Model)
 
-This repository now includes three runnable tenant variants:
+This branch is intentionally a single Mobius implementation that serves as a boilerplate.
 
-- `Tenant_Common` (Tenant A)
-- `Tenant_Restricted` (Tenant C)
-- `Tenant_Isolated` (Tenant B)
+Instead of storing multiple full copies such as `Tenant_Common`, `Tenant_Restricted`, and `Tenant_Isolated`, new MN instances are generated from the root template using profile overlays.
 
-## Tenant_Common (Tenant A)
+## Why this model
 
-Purpose:
-- Runs as MN-CSE using shared database infrastructure.
-- Matches the common tenant topology used with IN-CSE.
+- Faster and lighter `git clone`.
+- No code duplication drift across tenant folders.
+- Profile behavior is applied through generated config values.
 
-Configured defaults:
-- CSE-ID: `/mn-cse-tenant-a`
-- CSEBase RN: `mn-cse-tenant-a`
-- HTTP: `7601`
-- HTTPS: `7581`
-- Registrar target: `http://localhost:7599/incse`
-- DB: `mobiusdb_common` on `localhost:5432`
+## Available profiles
 
-## Tenant_Restricted (Tenant C)
+Use `scripts/create_mn_instance.sh` with one of:
 
-Purpose:
-- Runs as MN-CSE with tighter default access policy behavior.
-- Uses a shared PostgreSQL instance/database model.
+- `common`
+- `restricted`
+- `isolated`
 
-Configured defaults:
-- CSE-ID: `/mn-cse-tenant-c`
-- CSEBase RN: `mn-cse-tenant-c`
-- HTTP: `7603`
-- HTTPS: `7583`
-- Registrar target: `http://localhost:7599/incse`
-- DB: `onem2m_shared` on `localhost:5432`
-- Restricted default ACP knobs:
-  - `cb.default_acp.create=false`
-  - `cb.default_acp.retrieve=true`
-  - `cb.default_acp.update=false`
-  - `cb.default_acp.discovery=false`
+The script sets:
 
-## Tenant_Isolated (Tenant B)
+- CSE-ID and CSEBase names
+- HTTP/HTTPS ports (auto-resolved to avoid collisions)
+- Registrar target
+- DB name/user/port
+- Profile ACP defaults under `cb.default_acp`
 
-Purpose:
-- Runs as MN-CSE with dedicated DB endpoint.
-- Keeps tenant resource data isolated from shared tenant DB.
+## Profile defaults
 
-Configured defaults:
-- CSE-ID: `/mn-cse-tenant-b`
-- CSEBase RN: `mn-cse-tenant-b`
-- HTTP: `7602`
-- HTTPS: `7582`
-- Registrar target: `http://localhost:7599/incse`
-- DB: `onem2m_tenant_b` on `localhost:5433`
+`common`:
 
-## Shared DB Bootstrap Compatibility
+- Base HTTP/HTTPS: `7601` / `7581`
+- DB: `mobiusdb_common` (`common`) on `5432`
+- ACP: `create=true`, `retrieve=true`, `update=false`, `discovery=true`
 
-`db/init.js` is patched to look up existing CSEBase by `sid`:
-- `SELECT ri FROM cb WHERE ty = 5 AND sid = $1`
+`restricted`:
 
-This allows multiple tenant CSE processes to share one database without incorrectly reusing another tenant's CSEBase record.
+- Base HTTP/HTTPS: `7603` / `7583`
+- DB: `onem2m_shared` (`sm`) on `5432`
+- ACP: `create=false`, `retrieve=true`, `update=false`, `discovery=false`
 
-## Run Order
+`isolated`:
 
-1. Start IN-CSE (`/incse`) first.
-2. Start `Tenant_Common`, `Tenant_Restricted`, and/or `Tenant_Isolated`.
-3. Verify tree output with each tenant's `scripts/print_resource_tree.sh`.
+- Base HTTP/HTTPS: `7602` / `7582`
+- Base DB port: `5433` (auto-incremented if occupied)
+- DB: `onem2m_<mn_name>` (`<mn_name>` normalized)
+- ACP: `create=true`, `retrieve=true`, `update=false`, `discovery=true`
 
-## Notes
-
-- If databases do not exist yet, create them first (`onem2m_shared`, `onem2m_tenant_b`) and grant user permissions.
-- `Tenant_Isolated` is configured for a dedicated PostgreSQL instance/port (`5433`).
-
-## Automatic MN Provisioning
-
-Use the helper script to pull latest repository changes and create a new MN instance with automatically assigned free ports and updated CSE/DB settings:
+## Automatic MN provisioning
 
 ```bash
 ./scripts/create_mn_instance.sh --name tenant-d --profile common
-```
-
-Other examples:
-
-```bash
 ./scripts/create_mn_instance.sh --name tenant-e --profile restricted
-./scripts/create_mn_instance.sh --name tenant-f --profile isolated --base-http-port 7700 --base-https-port 7680
+./scripts/create_mn_instance.sh --name tenant-f --profile isolated
 ```
 
-Port conflict protection:
+Each created instance is tracked in `.mn_instances.json`.
 
-- The script checks currently listening local ports.
-- It also records every created MN in `.mn_instances.json` and avoids all reserved ports from that metadata file on future runs.
+The script checks both:
+
+- currently listening local ports
+- previously reserved ports in `.mn_instances.json`
+
+This avoids future collisions when creating many MNs over time.
