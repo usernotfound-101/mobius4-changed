@@ -1,0 +1,48 @@
+{
+  "cse": {
+    "cse_type": ${CSE_TYPE},
+    "cse_id": "${MOBIUS_CSE_ID}",
+    "csebase_rn": "${MOBIUS_BASE_RN}",
+    "poa": [
+      "http://${TENANT_VM_IP}:${MOBIUS_HTTP_PORT}"
+    ],
+    "registrar": {
+      "cse_id": "${REGISTRAR_CSE_ID}",
+      "csebase_rn": "${REGISTRAR_BASE_RN}",
+      "ip": "${REGISTRAR_HOST}",
+      "port": ${REGISTRAR_PORT}
+    },
+    "admin": "${MOBIUS_ADMIN}"
+  },
+  "http": {
+    "port": ${MOBIUS_CONTAINER_HTTP_PORT}
+  },
+  "https": {
+    "port": ${MOBIUS_CONTAINER_HTTPS_PORT}
+  },
+  "mqtt": {
+    "ip": "${MQTT_HOST}",
+    "port": ${MQTT_BROKER_PORT}
+  },
+  "db": {
+    "host": "mobius_db",
+    "port": 5432,
+    "name": "${MOBIUS_DB_NAME}",
+    "user": "${MOBIUS_DB_USER}",
+    "pw": "${MOBIUS_DB_PASSWORD}"
+  },
+  "logging": {
+    "level": "${LOG_LEVEL}"
+  },
+  "metrics": {
+    "enabled": ${METRICS_ENABLED}
+  },
+  "security": {
+    "helmet": {
+      "enabled": ${HELMET_ENABLED}
+    },
+    "rateLimit": {
+      "enabled": ${RATE_LIMIT_ENABLED}
+    }
+  }
+}

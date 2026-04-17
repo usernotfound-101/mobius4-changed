@@ -109,6 +109,25 @@ cp config/local.json.example config/local.json
     node mobius4.js
 ```
 
+## VM Pull Deployment (Docker)
+
+If you want tenant/VM deployment behavior similar to ctOP, use the pull-based flow in [deployment/README.md](deployment/README.md).
+
+Quick start:
+
+```bash
+cd deployment
+chmod +x scripts/build-and-push.sh scripts/deploy-vm.sh
+
+# Build and push image to your registry
+IMAGE_NAMESPACE=usernotfound-101 IMAGE_NAME=mobius4-changed VERSION=v0.1.0 ./scripts/build-and-push.sh
+
+# On target VM: prepare env and deploy via pull + up
+cp -f env-templates/vm.env.template .env
+# edit .env values (MOBIUS_IMAGE, passwords, ports, registrar)
+./scripts/deploy-vm.sh
+```
+
 ## Configurations
 
 Full configuration reference: [docs/configuration.md](docs/configuration.md)

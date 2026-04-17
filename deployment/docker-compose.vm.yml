@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  mobius_db:
+    image: postgis/postgis:17-3.4
+    container_name: mobius-db-${TENANT_ID:-default}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${MOBIUS_DB_USER:-mobius_admin}
+      POSTGRES_PASSWORD: ${MOBIUS_DB_PASSWORD:-mobius_secure_pass}
+      POSTGRES_DB: ${MOBIUS_DB_NAME:-mobius4}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${MOBIUS_DB_PORT:-15434}:5432"
+    volumes:
+      - mobius_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MOBIUS_DB_USER:-mobius_admin} -d ${MOBIUS_DB_NAME:-mobius4}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mobius-network
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mobius-mosquitto-${TENANT_ID:-default}
+    restart: unless-stopped
+    ports:
+      - "${MQTT_PORT:-18884}:1883"
+      - "${MQTT_WS_PORT:-19001}:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 | grep -v Error || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mobius-network
+
+  mobius_app:
+    image: ${MOBIUS_IMAGE:-docker.io/usernotfound-101/mobius4-changed:latest}
+    container_name: mobius-app-${TENANT_ID:-default}
+    restart: unless-stopped
+    depends_on:
+      mobius_db:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    ports:
+      - "${MOBIUS_HTTP_PORT:-17599}:${MOBIUS_CONTAINER_HTTP_PORT:-7603}"
+      - "${MOBIUS_HTTPS_PORT:-17582}:${MOBIUS_CONTAINER_HTTPS_PORT:-7582}"
+    volumes:
+      - ./runtime/local.json:/app/config/local.json:ro
+      - mobius_logs:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http=require('http');const p=process.env.MOBIUS_CONTAINER_HTTP_PORT||7603;const rn=process.env.MOBIUS_BASE_RN||'mn-cse-default';http.get('http://127.0.0.1:'+p+'/'+rn,(r)=>process.exit(r.statusCode>=200&&r.statusCode<500?0:1)).on('error',()=>process.exit(1));"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mobius-network
+
+networks:
+  mobius-network:
+    driver: bridge
+    name: mobius-network-${TENANT_ID:-default}
+
+volumes:
+  mobius_db_data:
+    driver: local
+    name: mobius_db_data_${TENANT_ID:-default}
+  mosquitto_data:
+    driver: local
+    name: mosquitto_data_${TENANT_ID:-default}
+  mosquitto_logs:
+    driver: local
+    name: mosquitto_logs_${TENANT_ID:-default}
+  mobius_logs:
+    driver: local
+    name: mobius_logs_${TENANT_ID:-default}
