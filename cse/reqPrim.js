@@ -307,8 +307,8 @@ function set_default_req_params(req_prim) {
     // by the spec, default is conditional retrieval for RETRIEVE
     req_prim.fc.fu = 2;
   }
-  if (req_prim.fc === 1 && !req_prim.fc.drt) {
-    req_prim.fc.drt = 1; // structured ID format
+  if (req_prim.fc.fu === 1 && req_prim.drt === undefined) {
+    req_prim.drt = 1; // structured ID format
   }
 
   // result content

@@ -6,4 +6,3 @@ logs/
 MN_*/
 .mn_instances.json
 deployment/.env
-deployment/runtime/local.json

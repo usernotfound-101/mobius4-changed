@@ -44,7 +44,7 @@ services:
       - mobius-network
 
   mobius_app:
-    image: ${MOBIUS_IMAGE:-docker.io/usernotfound-101/mobius4-changed:latest}
+    image: ${MOBIUS_IMAGE:-docker.io/usernotfound101/mobius4-changed@sha256:4bd53f02277e2e2e736b901d59321d9d096bbe0ab4ed5078bd713a8ee8290856}
     container_name: mobius-app-${TENANT_ID:-default}
     restart: unless-stopped
     depends_on:
